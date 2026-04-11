@@ -18,11 +18,54 @@ TICKERS_CSV = Path(__file__).parent.parent.parent / "data" / "tickers.csv"
 
 def load_tickers() -> list[str]:
     tickers = []
-    with open(TICKERS_CSV, newline="") as f:
+    with open(TICKERS_CSV, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
             tickers.append(row["ticker"].strip())
     return sorted(set(tickers))
+
+
+def load_ticker_info() -> list[dict]:
+    """Load full ticker info including Korean names."""
+    results = []
+    seen = set()
+    with open(TICKERS_CSV, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            ticker = row["ticker"].strip()
+            if ticker in seen:
+                continue
+            seen.add(ticker)
+            results.append({
+                "ticker": ticker,
+                "name": row.get("name", "").strip(),
+                "name_kr": row.get("name_kr", "").strip(),
+                "index": row.get("index", "").strip(),
+            })
+    return sorted(results, key=lambda x: x["ticker"])
+
+
+def resolve_ticker(query: str) -> str | None:
+    """Resolve a ticker or Korean name to a ticker symbol.
+
+    Accepts: ticker (NVDA), English name (NVIDIA), Korean name (엔비디아).
+    Returns the ticker symbol or None if not found.
+    """
+    query_upper = query.upper().strip()
+    query_lower = query.lower().strip()
+    with open(TICKERS_CSV, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            ticker = row["ticker"].strip().upper()
+            name = row.get("name", "").strip().lower()
+            name_kr = row.get("name_kr", "").strip()
+            if query_upper == ticker:
+                return ticker
+            if query_lower == name:
+                return ticker
+            if query == name_kr:
+                return ticker
+    return None
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=10))

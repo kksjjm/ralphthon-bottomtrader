@@ -1,246 +1,237 @@
-ticker,name,index
-AAPL,Apple Inc,SP500
-ABBV,AbbVie Inc,SP500
-ABT,Abbott Laboratories,SP500
-ACN,Accenture plc,SP500
-ADBE,Adobe Inc,SP500
-ADI,Analog Devices,SP500
-ADM,Archer-Daniels-Midland,SP500
-ADP,Automatic Data Processing,SP500
-ADSK,Autodesk Inc,SP500
-AEP,American Electric Power,SP500
-AIG,American International Group,SP500
-AMAT,Applied Materials,SP500
-AMD,Advanced Micro Devices,SP500
-AMGN,Amgen Inc,SP500
-AMP,Ameriprise Financial,SP500
-AMZN,Amazon.com Inc,SP500
-ANET,Arista Networks,SP500
-ANSS,ANSYS Inc,SP500
-AON,Aon plc,SP500
-APD,Air Products and Chemicals,SP500
-APH,Amphenol Corp,SP500
-AVGO,Broadcom Inc,SP500
-AXP,American Express,SP500
-AZO,AutoZone Inc,SP500
-BA,Boeing Co,SP500
-BAC,Bank of America,SP500
-BDX,Becton Dickinson,SP500
-BK,Bank of New York Mellon,SP500
-BKNG,Booking Holdings,SP500
-BLK,BlackRock Inc,SP500
-BMY,Bristol-Myers Squibb,SP500
-BRK-B,Berkshire Hathaway B,SP500
-BSX,Boston Scientific,SP500
-C,Citigroup Inc,SP500
-CAT,Caterpillar Inc,SP500
-CB,Chubb Limited,SP500
-CDNS,Cadence Design Systems,SP500
-CEG,Constellation Energy,SP500
-CHTR,Charter Communications,SP500
-CI,Cigna Group,SP500
-CL,Colgate-Palmolive,SP500
-CMCSA,Comcast Corp,SP500
-CME,CME Group,SP500
-CMG,Chipotle Mexican Grill,SP500
-COP,ConocoPhillips,SP500
-COST,Costco Wholesale,SP500
-CRM,Salesforce Inc,SP500
-CRWD,CrowdStrike Holdings,NASDAQ100
-CSCO,Cisco Systems,SP500
-CTAS,Cintas Corp,SP500
-CVS,CVS Health,SP500
-CVX,Chevron Corp,SP500
-D,Dominion Energy,SP500
-DE,Deere & Co,SP500
-DHR,Danaher Corp,SP500
-DIS,Walt Disney Co,SP500
-DXCM,DexCom Inc,SP500
-EA,Electronic Arts,SP500
-ECL,Ecolab Inc,SP500
-EL,Estee Lauder,SP500
-EMR,Emerson Electric,SP500
-ENPH,Enphase Energy,SP500
-EOG,EOG Resources,SP500
-EQT,EQT Corp,SP500
-ETN,Eaton Corp,SP500
-EW,Edwards Lifesciences,SP500
-EXC,Exelon Corp,SP500
-F,Ford Motor,SP500
-FANG,Diamondback Energy,SP500
-FAST,Fastenal Co,SP500
-FCX,Freeport-McMoRan,SP500
-FDX,FedEx Corp,SP500
-FI,Fiserv Inc,SP500
-FTNT,Fortinet Inc,SP500
-GD,General Dynamics,SP500
-GE,GE Aerospace,SP500
-GILD,Gilead Sciences,SP500
-GIS,General Mills,SP500
-GM,General Motors,SP500
-GOOG,Alphabet Inc C,SP500
-GOOGL,Alphabet Inc A,SP500
-GPN,Global Payments,SP500
-GS,Goldman Sachs,SP500
-HAL,Halliburton Co,SP500
-HD,Home Depot,SP500
-HLT,Hilton Worldwide,SP500
-HON,Honeywell International,SP500
-HUM,Humana Inc,SP500
-IBM,IBM Corp,SP500
-ICE,Intercontinental Exchange,SP500
-IDXX,IDEXX Laboratories,SP500
-ILMN,Illumina Inc,SP500
-INTC,Intel Corp,SP500
-INTU,Intuit Inc,SP500
-ISRG,Intuitive Surgical,SP500
-ITW,Illinois Tool Works,SP500
-JNJ,Johnson & Johnson,SP500
-JPM,JPMorgan Chase,SP500
-KDP,Keurig Dr Pepper,SP500
-KHC,Kraft Heinz,SP500
-KLAC,KLA Corp,SP500
-KO,Coca-Cola Co,SP500
-LEN,Lennar Corp,SP500
-LHX,L3Harris Technologies,SP500
-LIN,Linde plc,SP500
-LLY,Eli Lilly,SP500
-LMT,Lockheed Martin,SP500
-LOW,Lowe's Companies,SP500
-LRCX,Lam Research,SP500
-LULU,Lululemon Athletica,SP500
-MA,Mastercard Inc,SP500
-MAR,Marriott International,SP500
-MCD,McDonald's Corp,SP500
-MCHP,Microchip Technology,SP500
-MCK,McKesson Corp,SP500
-MCO,Moody's Corp,SP500
-MDLZ,Mondelez International,SP500
-MDT,Medtronic plc,SP500
-MET,MetLife Inc,SP500
-META,Meta Platforms,SP500
-MMC,Marsh & McLennan,SP500
-MMM,3M Company,SP500
-MO,Altria Group,SP500
-MPC,Marathon Petroleum,SP500
-MRVL,Marvell Technology,SP500
-MS,Morgan Stanley,SP500
-MSFT,Microsoft Corp,SP500
-MSI,Motorola Solutions,SP500
-MU,Micron Technology,SP500
-NFLX,Netflix Inc,SP500
-NKE,Nike Inc,SP500
-NOC,Northrop Grumman,SP500
-NOW,ServiceNow Inc,SP500
-NSC,Norfolk Southern,SP500
-NVDA,NVIDIA Corp,SP500
-NVO,Novo Nordisk,SP500
-ORCL,Oracle Corp,SP500
-ORLY,O'Reilly Automotive,SP500
-OXY,Occidental Petroleum,SP500
-PANW,Palo Alto Networks,SP500
-PAYX,Paychex Inc,SP500
-PCAR,PACCAR Inc,SP500
-PEP,PepsiCo Inc,SP500
-PFE,Pfizer Inc,SP500
-PG,Procter & Gamble,SP500
-PGR,Progressive Corp,SP500
-PLD,Prologis Inc,SP500
-PM,Philip Morris International,SP500
-PNC,PNC Financial Services,SP500
-PSA,Public Storage,SP500
-PSX,Phillips 66,SP500
-PYPL,PayPal Holdings,SP500
-QCOM,Qualcomm Inc,SP500
-REGN,Regeneron Pharmaceuticals,SP500
-ROP,Roper Technologies,SP500
-ROST,Ross Stores,SP500
-RTX,RTX Corp,SP500
-SBUX,Starbucks Corp,SP500
-SCHW,Charles Schwab,SP500
-SHW,Sherwin-Williams,SP500
-SLB,Schlumberger Ltd,SP500
-SMCI,Super Micro Computer,SP500
-SNPS,Synopsys Inc,SP500
-SO,Southern Company,SP500
-SPG,Simon Property Group,SP500
-SPGI,S&P Global,SP500
-SRE,Sempra Energy,SP500
-SYK,Stryker Corp,SP500
-SYY,Sysco Corp,SP500
-T,AT&T Inc,SP500
-TDG,TransDigm Group,SP500
-TGT,Target Corp,SP500
-TJX,TJX Companies,SP500
-TMO,Thermo Fisher Scientific,SP500
-TMUS,T-Mobile US,SP500
-TRV,Travelers Companies,SP500
-TSLA,Tesla Inc,SP500
-TT,Trane Technologies,SP500
-TXN,Texas Instruments,SP500
-UNH,UnitedHealth Group,SP500
-UNP,Union Pacific,SP500
-UPS,United Parcel Service,SP500
-URI,United Rentals,SP500
-USB,US Bancorp,SP500
-V,Visa Inc,SP500
-VLO,Valero Energy,SP500
-VRSK,Verisk Analytics,SP500
-VRTX,Vertex Pharmaceuticals,SP500
-VZ,Verizon Communications,SP500
-WBA,Walgreens Boots Alliance,SP500
-WBD,Warner Bros Discovery,SP500
-WDAY,Workday Inc,SP500
-WEC,WEC Energy Group,SP500
-WELL,Welltower Inc,SP500
-WFC,Wells Fargo,SP500
-WM,Waste Management,SP500
-WMT,Walmart Inc,SP500
-XEL,Xcel Energy,SP500
-XOM,Exxon Mobil,SP500
-XYL,Xylem Inc,SP500
-YUM,Yum! Brands,SP500
-ZBH,Zimmer Biomet,SP500
-ZBRA,Zebra Technologies,SP500
-ZTS,Zoetis Inc,SP500
-ABNB,Airbnb Inc,NASDAQ100
-AEP,American Electric Power,NASDAQ100
-ALGN,Align Technology,NASDAQ100
-AMGN,Amgen Inc,NASDAQ100
-ARM,Arm Holdings,NASDAQ100
-ASML,ASML Holding,NASDAQ100
-BIDU,Baidu Inc,NASDAQ100
-BIIB,Biogen Inc,NASDAQ100
-BKR,Baker Hughes,NASDAQ100
-CCEP,Coca-Cola Europacific,NASDAQ100
-CDW,CDW Corp,NASDAQ100
-COIN,Coinbase Global,NASDAQ100
-CPRT,Copart Inc,NASDAQ100
-DASH,DoorDash Inc,NASDAQ100
-DLTR,Dollar Tree,NASDAQ100
-DDOG,Datadog Inc,NASDAQ100
-FANG,Diamondback Energy,NASDAQ100
-GFS,GlobalFoundries,NASDAQ100
-HON,Honeywell International,NASDAQ100
-JD,JD.com Inc,NASDAQ100
-KDP,Keurig Dr Pepper,NASDAQ100
-LULU,Lululemon Athletica,NASDAQ100
-MELI,MercadoLibre Inc,NASDAQ100
-MNST,Monster Beverage,NASDAQ100
-NXPI,NXP Semiconductors,NASDAQ100
-ODFL,Old Dominion Freight,NASDAQ100
-ON,ON Semiconductor,NASDAQ100
-PDD,PDD Holdings,NASDAQ100
-PTON,Peloton Interactive,NASDAQ100
-RIVN,Rivian Automotive,NASDAQ100
-ROKU,Roku Inc,NASDAQ100
-SIRI,Sirius XM,NASDAQ100
-TEAM,Atlassian Corp,NASDAQ100
-TOST,Toast Inc,NASDAQ100
-TTD,Trade Desk,NASDAQ100
-TTWO,Take-Two Interactive,NASDAQ100
-TXN,Texas Instruments,NASDAQ100
-VRSK,Verisk Analytics,NASDAQ100
-WBD,Warner Bros Discovery,NASDAQ100
-ZM,Zoom Video,NASDAQ100
-ZS,Zscaler Inc,NASDAQ100
+ticker,name,name_kr,index
+AAPL,Apple Inc,애플,SP500
+ABBV,AbbVie Inc,애브비,SP500
+ABT,Abbott Laboratories,애보트,SP500
+ACN,Accenture plc,액센추어,SP500
+ADBE,Adobe Inc,어도비,SP500
+ADI,Analog Devices,아날로그디바이스,SP500
+ADM,Archer-Daniels-Midland,ADM,SP500
+ADP,Automatic Data Processing,ADP,SP500
+ADSK,Autodesk Inc,오토데스크,SP500
+AEP,American Electric Power,아메리칸일렉트릭,SP500
+AIG,American International Group,AIG,SP500
+AMAT,Applied Materials,어플라이드머티리얼즈,SP500
+AMD,Advanced Micro Devices,AMD,SP500
+AMGN,Amgen Inc,암젠,SP500
+AMP,Ameriprise Financial,아메리프라이즈,SP500
+AMZN,Amazon.com Inc,아마존,SP500
+ANET,Arista Networks,아리스타네트웍스,SP500
+ANSS,ANSYS Inc,앤시스,SP500
+AON,Aon plc,에이온,SP500
+APD,Air Products and Chemicals,에어프로덕츠,SP500
+APH,Amphenol Corp,앰페놀,SP500
+AVGO,Broadcom Inc,브로드컴,SP500
+AXP,American Express,아메리칸익스프레스,SP500
+AZO,AutoZone Inc,오토존,SP500
+BA,Boeing Co,보잉,SP500
+BAC,Bank of America,뱅크오브아메리카,SP500
+BDX,Becton Dickinson,벡턴디킨슨,SP500
+BK,Bank of New York Mellon,BNY멜론,SP500
+BKNG,Booking Holdings,부킹홀딩스,SP500
+BLK,BlackRock Inc,블랙록,SP500
+BMY,Bristol-Myers Squibb,브리스톨마이어스,SP500
+BRK-B,Berkshire Hathaway B,버크셔해서웨이,SP500
+BSX,Boston Scientific,보스턴사이언티픽,SP500
+C,Citigroup Inc,씨티그룹,SP500
+CAT,Caterpillar Inc,캐터필러,SP500
+CB,Chubb Limited,처브,SP500
+CDNS,Cadence Design Systems,케이던스,SP500
+CEG,Constellation Energy,컨스텔레이션에너지,SP500
+CHTR,Charter Communications,차터커뮤니케이션즈,SP500
+CI,Cigna Group,시그나,SP500
+CL,Colgate-Palmolive,콜게이트,SP500
+CMCSA,Comcast Corp,컴캐스트,SP500
+CME,CME Group,CME그룹,SP500
+CMG,Chipotle Mexican Grill,치폴레,SP500
+COP,ConocoPhillips,코노코필립스,SP500
+COST,Costco Wholesale,코스트코,SP500
+CRM,Salesforce Inc,세일즈포스,SP500
+CRWD,CrowdStrike Holdings,크라우드스트라이크,NASDAQ100
+CSCO,Cisco Systems,시스코,SP500
+CTAS,Cintas Corp,신타스,SP500
+CVS,CVS Health,CVS헬스,SP500
+CVX,Chevron Corp,셰브론,SP500
+D,Dominion Energy,도미니언에너지,SP500
+DE,Deere & Co,디어,SP500
+DHR,Danaher Corp,다나허,SP500
+DIS,Walt Disney Co,디즈니,SP500
+DXCM,DexCom Inc,덱스콤,SP500
+EA,Electronic Arts,일렉트로닉아츠,SP500
+ECL,Ecolab Inc,에코랩,SP500
+EL,Estee Lauder,에스티로더,SP500
+EMR,Emerson Electric,에머슨일렉트릭,SP500
+ENPH,Enphase Energy,엔페이즈,SP500
+EOG,EOG Resources,EOG리소시스,SP500
+EQT,EQT Corp,EQT,SP500
+ETN,Eaton Corp,이튼,SP500
+EW,Edwards Lifesciences,에드워즈라이프사이언스,SP500
+EXC,Exelon Corp,엑셀론,SP500
+F,Ford Motor,포드,SP500
+FANG,Diamondback Energy,다이아몬드백에너지,SP500
+FAST,Fastenal Co,파스날,SP500
+FCX,Freeport-McMoRan,프리포트맥모란,SP500
+FDX,FedEx Corp,페덱스,SP500
+FI,Fiserv Inc,피서브,SP500
+FTNT,Fortinet Inc,포티넷,SP500
+GD,General Dynamics,제너럴다이내믹스,SP500
+GE,GE Aerospace,GE에어로스페이스,SP500
+GILD,Gilead Sciences,길리어드,SP500
+GIS,General Mills,제너럴밀스,SP500
+GM,General Motors,제너럴모터스,SP500
+GOOG,Alphabet Inc C,구글C,SP500
+GOOGL,Alphabet Inc A,구글,SP500
+GPN,Global Payments,글로벌페이먼츠,SP500
+GS,Goldman Sachs,골드만삭스,SP500
+HAL,Halliburton Co,할리버튼,SP500
+HD,Home Depot,홈디포,SP500
+HLT,Hilton Worldwide,힐튼,SP500
+HON,Honeywell International,허니웰,SP500
+HUM,Humana Inc,휴마나,SP500
+IBM,IBM Corp,IBM,SP500
+ICE,Intercontinental Exchange,ICE,SP500
+IDXX,IDEXX Laboratories,아이덱스,SP500
+ILMN,Illumina Inc,일루미나,SP500
+INTC,Intel Corp,인텔,SP500
+INTU,Intuit Inc,인튜이트,SP500
+ISRG,Intuitive Surgical,인튜이티브서지컬,SP500
+ITW,Illinois Tool Works,일리노이툴웍스,SP500
+JNJ,Johnson & Johnson,존슨앤존슨,SP500
+JPM,JPMorgan Chase,JP모건,SP500
+KDP,Keurig Dr Pepper,큐리그닥터페퍼,SP500
+KHC,Kraft Heinz,크래프트하인즈,SP500
+KLAC,KLA Corp,KLA,SP500
+KO,Coca-Cola Co,코카콜라,SP500
+LEN,Lennar Corp,레나,SP500
+LHX,L3Harris Technologies,L3해리스,SP500
+LIN,Linde plc,린데,SP500
+LLY,Eli Lilly,일라이릴리,SP500
+LMT,Lockheed Martin,록히드마틴,SP500
+LOW,Lowe's Companies,로우스,SP500
+LRCX,Lam Research,램리서치,SP500
+LULU,Lululemon Athletica,룰루레몬,SP500
+MA,Mastercard Inc,마스터카드,SP500
+MAR,Marriott International,메리어트,SP500
+MCD,McDonald's Corp,맥도날드,SP500
+MCHP,Microchip Technology,마이크로칩,SP500
+MCK,McKesson Corp,맥케슨,SP500
+MCO,Moody's Corp,무디스,SP500
+MDLZ,Mondelez International,몬델리즈,SP500
+MDT,Medtronic plc,메드트로닉,SP500
+MET,MetLife Inc,메트라이프,SP500
+META,Meta Platforms,메타,SP500
+MMC,Marsh & McLennan,마쉬앤맥레넌,SP500
+MMM,3M Company,쓰리엠,SP500
+MO,Altria Group,알트리아,SP500
+MPC,Marathon Petroleum,마라톤페트롤리엄,SP500
+MRVL,Marvell Technology,마벨테크놀로지,SP500
+MS,Morgan Stanley,모건스탠리,SP500
+MSFT,Microsoft Corp,마이크로소프트,SP500
+MSI,Motorola Solutions,모토로라솔루션즈,SP500
+MU,Micron Technology,마이크론,SP500
+NFLX,Netflix Inc,넷플릭스,SP500
+NKE,Nike Inc,나이키,SP500
+NOC,Northrop Grumman,노스럽그루먼,SP500
+NOW,ServiceNow Inc,서비스나우,SP500
+NSC,Norfolk Southern,노퍽서던,SP500
+NVDA,NVIDIA Corp,엔비디아,SP500
+NVO,Novo Nordisk,노보노디스크,SP500
+ORCL,Oracle Corp,오라클,SP500
+ORLY,O'Reilly Automotive,오라일리,SP500
+OXY,Occidental Petroleum,옥시덴탈,SP500
+PANW,Palo Alto Networks,팔로알토네트웍스,SP500
+PAYX,Paychex Inc,페이첵스,SP500
+PCAR,PACCAR Inc,팩카,SP500
+PEP,PepsiCo Inc,펩시코,SP500
+PFE,Pfizer Inc,화이자,SP500
+PG,Procter & Gamble,P&G,SP500
+PGR,Progressive Corp,프로그레시브,SP500
+PLD,Prologis Inc,프로로지스,SP500
+PM,Philip Morris International,필립모리스,SP500
+PNC,PNC Financial Services,PNC파이낸셜,SP500
+PSA,Public Storage,퍼블릭스토리지,SP500
+PSX,Phillips 66,필립스66,SP500
+PYPL,PayPal Holdings,페이팔,SP500
+QCOM,Qualcomm Inc,퀄컴,SP500
+REGN,Regeneron Pharmaceuticals,리제네론,SP500
+ROP,Roper Technologies,로퍼테크놀로지,SP500
+ROST,Ross Stores,로스스토어스,SP500
+RTX,RTX Corp,RTX,SP500
+SBUX,Starbucks Corp,스타벅스,SP500
+SCHW,Charles Schwab,찰스슈왑,SP500
+SHW,Sherwin-Williams,셔윈윌리엄스,SP500
+SLB,Schlumberger Ltd,슐럼버거,SP500
+SMCI,Super Micro Computer,슈퍼마이크로,SP500
+SNPS,Synopsys Inc,시놉시스,SP500
+SO,Southern Company,서던컴퍼니,SP500
+SPG,Simon Property Group,사이먼프로퍼티,SP500
+SPGI,S&P Global,S&P글로벌,SP500
+SRE,Sempra Energy,셈프라,SP500
+SYK,Stryker Corp,스트라이커,SP500
+SYY,Sysco Corp,시스코푸드,SP500
+T,AT&T Inc,AT&T,SP500
+TDG,TransDigm Group,트랜스다임,SP500
+TGT,Target Corp,타겟,SP500
+TJX,TJX Companies,TJX,SP500
+TMO,Thermo Fisher Scientific,써모피셔,SP500
+TMUS,T-Mobile US,T모바일,SP500
+TRV,Travelers Companies,트래블러스,SP500
+TSLA,Tesla Inc,테슬라,SP500
+TT,Trane Technologies,트레인테크놀로지,SP500
+TXN,Texas Instruments,텍사스인스트루먼트,SP500
+UNH,UnitedHealth Group,유나이티드헬스,SP500
+UNP,Union Pacific,유니온퍼시픽,SP500
+UPS,United Parcel Service,UPS,SP500
+URI,United Rentals,유나이티드렌탈,SP500
+USB,US Bancorp,US뱅코프,SP500
+V,Visa Inc,비자,SP500
+VLO,Valero Energy,발레로에너지,SP500
+VRSK,Verisk Analytics,베리스크,SP500
+VRTX,Vertex Pharmaceuticals,버텍스,SP500
+VZ,Verizon Communications,버라이즌,SP500
+WBA,Walgreens Boots Alliance,월그린스,SP500
+WBD,Warner Bros Discovery,워너브라더스,SP500
+WDAY,Workday Inc,워크데이,SP500
+WEC,WEC Energy Group,WEC에너지,SP500
+WELL,Welltower Inc,웰타워,SP500
+WFC,Wells Fargo,웰스파고,SP500
+WM,Waste Management,웨이스트매니지먼트,SP500
+WMT,Walmart Inc,월마트,SP500
+XEL,Xcel Energy,엑셀에너지,SP500
+XOM,Exxon Mobil,엑슨모빌,SP500
+XYL,Xylem Inc,자일럼,SP500
+YUM,Yum! Brands,얌브랜즈,SP500
+ZBH,Zimmer Biomet,짐머바이오메트,SP500
+ZBRA,Zebra Technologies,지브라,SP500
+ZTS,Zoetis Inc,조에티스,SP500
+ABNB,Airbnb Inc,에어비앤비,NASDAQ100
+ALGN,Align Technology,얼라인테크놀로지,NASDAQ100
+ARM,Arm Holdings,ARM,NASDAQ100
+ASML,ASML Holding,ASML,NASDAQ100
+BIDU,Baidu Inc,바이두,NASDAQ100
+BIIB,Biogen Inc,바이오젠,NASDAQ100
+BKR,Baker Hughes,베이커휴즈,NASDAQ100
+CCEP,Coca-Cola Europacific,코카콜라유럽,NASDAQ100
+CDW,CDW Corp,CDW,NASDAQ100
+COIN,Coinbase Global,코인베이스,NASDAQ100
+CPRT,Copart Inc,코파트,NASDAQ100
+DASH,DoorDash Inc,도어대시,NASDAQ100
+DLTR,Dollar Tree,달러트리,NASDAQ100
+DDOG,Datadog Inc,데이터독,NASDAQ100
+GFS,GlobalFoundries,글로벌파운드리즈,NASDAQ100
+JD,JD.com Inc,징동닷컴,NASDAQ100
+MELI,MercadoLibre Inc,메르카도리브레,NASDAQ100
+MNST,Monster Beverage,몬스터비버리지,NASDAQ100
+NXPI,NXP Semiconductors,NXP반도체,NASDAQ100
+ODFL,Old Dominion Freight,올드도미니언,NASDAQ100
+ON,ON Semiconductor,온세미컨덕터,NASDAQ100
+PDD,PDD Holdings,PDD홀딩스,NASDAQ100
+PTON,Peloton Interactive,펠로톤,NASDAQ100
+RIVN,Rivian Automotive,리비안,NASDAQ100
+ROKU,Roku Inc,로쿠,NASDAQ100
+SIRI,Sirius XM,시리우스XM,NASDAQ100
+TEAM,Atlassian Corp,아틀라시안,NASDAQ100
+TOST,Toast Inc,토스트,NASDAQ100
+TTD,Trade Desk,트레이드데스크,NASDAQ100
+TTWO,Take-Two Interactive,테이크투,NASDAQ100
+ZM,Zoom Video,줌비디오,NASDAQ100
+ZS,Zscaler Inc,지스케일러,NASDAQ100
