@@ -1,6 +1,11 @@
 """
 Built-in scheduler for running the pipeline at fixed times.
 Runs inside the bot process so no separate cron service is needed.
+
+Schedule (KST):
+  06:00 - Fetch + analyze + save to DB (no Telegram send)
+  08:00 - Read from DB + send Telegram (fast, data already ready)
+  20:00 - Fetch + analyze + send Telegram (all-in-one)
 """
 from __future__ import annotations
 
@@ -13,32 +18,37 @@ logger = structlog.get_logger()
 
 KST = timezone(timedelta(hours=9))
 
-# Run at Korean 8:00 AM and 8:00 PM
-SCHEDULE_HOURS_KST = [8, 20]
+# (hour_kst, task_type)
+SCHEDULE = [
+    (6, "fetch_only"),
+    (8, "send_only"),
+    (20, "fetch_and_send"),
+]
 
 
-def _next_run_time() -> datetime:
-    """Calculate the next scheduled run time in UTC."""
+def _next_task() -> tuple[datetime, str]:
+    """Calculate the next scheduled task time (UTC) and its type."""
     now_kst = datetime.now(KST)
-    for hour in sorted(SCHEDULE_HOURS_KST):
+    for hour, task_type in sorted(SCHEDULE, key=lambda x: x[0]):
         candidate = now_kst.replace(hour=hour, minute=0, second=0, microsecond=0)
         if candidate > now_kst:
-            return candidate.astimezone(timezone.utc)
+            return candidate.astimezone(timezone.utc), task_type
     # All today's slots passed, schedule for tomorrow's first slot
     tomorrow = now_kst + timedelta(days=1)
-    first_hour = min(SCHEDULE_HOURS_KST)
+    first_hour, first_type = min(SCHEDULE, key=lambda x: x[0])
     candidate = tomorrow.replace(hour=first_hour, minute=0, second=0, microsecond=0)
-    return candidate.astimezone(timezone.utc)
+    return candidate.astimezone(timezone.utc), first_type
 
 
 async def run_scheduler() -> None:
-    """Loop forever, running the pipeline at scheduled times."""
-    from src.pipeline import run_pipeline
+    """Loop forever, running tasks at scheduled times."""
+    from src.pipeline import run_pipeline, send_cached_alerts
 
-    logger.info("scheduler_started", schedule_kst=SCHEDULE_HOURS_KST)
+    schedule_desc = [f"{h}시({t})" for h, t in SCHEDULE]
+    logger.info("scheduler_started", schedule_kst=schedule_desc)
 
     while True:
-        next_run = _next_run_time()
+        next_run, task_type = _next_task()
         now = datetime.now(timezone.utc)
         wait_seconds = (next_run - now).total_seconds()
 
@@ -46,16 +56,22 @@ async def run_scheduler() -> None:
         logger.info(
             "scheduler_waiting",
             next_run_kst=next_kst.strftime("%Y-%m-%d %H:%M KST"),
+            task_type=task_type,
             wait_minutes=round(wait_seconds / 60, 1),
         )
 
         await asyncio.sleep(wait_seconds)
 
-        logger.info("scheduler_triggering_pipeline")
+        logger.info("scheduler_triggering", task_type=task_type)
         try:
-            await asyncio.wait_for(run_pipeline(), timeout=600)
-            logger.info("scheduler_pipeline_complete")
+            if task_type == "fetch_only":
+                await asyncio.wait_for(run_pipeline(send_telegram=False), timeout=600)
+            elif task_type == "send_only":
+                await asyncio.wait_for(send_cached_alerts(), timeout=120)
+            elif task_type == "fetch_and_send":
+                await asyncio.wait_for(run_pipeline(send_telegram=True), timeout=600)
+            logger.info("scheduler_task_complete", task_type=task_type)
         except asyncio.TimeoutError:
-            logger.error("scheduler_pipeline_timeout", timeout_seconds=600)
+            logger.error("scheduler_timeout", task_type=task_type)
         except Exception as e:
-            logger.error("scheduler_pipeline_error", error=str(e))
+            logger.error("scheduler_error", task_type=task_type, error=str(e))

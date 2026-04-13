@@ -86,8 +86,10 @@ def _format_macro_message(analysis: dict, drop_count: int) -> str:
     return "\n".join(lines)
 
 
-async def _send_telegram(bot: Bot, text: str) -> None:
+async def _send_telegram(bot: Bot | None, text: str) -> None:
     """Send a message to the Telegram channel, splitting if needed."""
+    if bot is None:
+        return
     max_len = 4000
     full_text = text + DISCLAIMER
     if len(full_text) <= max_len:
@@ -247,7 +249,7 @@ def _format_sell_signals(signals: list[dict]) -> str:
     return "\n".join(lines)
 
 
-async def _send_sell_signals(bot: Bot, signals: list[dict]) -> None:
+async def _send_sell_signals(bot: Bot | None, signals: list[dict]) -> None:
     """Send sell timing signals to affected users."""
     if not signals:
         return
@@ -257,10 +259,15 @@ async def _send_sell_signals(bot: Bot, signals: list[dict]) -> None:
         logger.info("sell_signals_sent", count=len(signals))
 
 
-async def run_pipeline() -> None:
-    """Main pipeline: fetch prices, detect drops, analyze, send alerts."""
-    logger.info("pipeline_started")
-    bot = Bot(token=TELEGRAM_BOT_TOKEN)
+async def run_pipeline(send_telegram: bool = True) -> None:
+    """Main pipeline: fetch prices, detect drops, analyze, optionally send alerts.
+
+    Args:
+        send_telegram: If False, fetch+analyze+save to DB only (no Telegram message).
+                       If True, also send alerts via Telegram.
+    """
+    logger.info("pipeline_started", send_telegram=send_telegram)
+    bot = Bot(token=TELEGRAM_BOT_TOKEN) if send_telegram else None
     today = date.today()
 
     # Load tickers and user settings
@@ -390,6 +397,51 @@ async def run_pipeline() -> None:
     await _send_sell_signals(bot, sell_signals)
 
     logger.info("pipeline_complete", alerts=len(all_drops))
+
+
+async def send_cached_alerts() -> None:
+    """Read today's alerts from DB and send via Telegram.
+
+    Used by the 8 AM KST schedule — data was already fetched at 6 AM.
+    """
+    logger.info("send_cached_alerts_started")
+    bot = Bot(token=TELEGRAM_BOT_TOKEN)
+    today = date.today()
+
+    alerts = db.get_alerts_by_date(today)
+    if not alerts:
+        await _send_telegram(bot, f"📊 {today.isoformat()} — 오늘은 급락 종목이 없습니다.")
+        logger.info("send_cached_no_alerts")
+        return
+
+    if len(alerts) > CIRCUIT_BREAKER_THRESHOLD:
+        msg = f"🔻 시장 전체 급락 — {len(alerts)}개 종목 하락"
+        if alerts[0].get("cause"):
+            msg += f"\n\n원인: {alerts[0]['cause']}"
+        await _send_telegram(bot, msg)
+    else:
+        messages = [f"📉 급락 알림 ({today.isoformat()})"]
+        for a in sorted(alerts, key=lambda x: float(x.get("drop_pct", 0))):
+            ticker = a["ticker"]
+            drop_pct = float(a.get("drop_pct", 0))
+            avg_drop_pct = float(a["avg_drop_pct"]) if a.get("avg_drop_pct") else None
+            cause = a.get("cause", "분석 없음")
+            confidence = a.get("confidence", "LOW")
+            sources = a.get("sources") or []
+
+            lines = [f"\n📉 {ticker} {drop_pct:+.1f}% (일일)"]
+            if avg_drop_pct:
+                lines[0] += f" | 이동평균 대비 {avg_drop_pct:+.1f}%"
+            lines.append(f"원인: {cause}")
+            lines.append(f"신뢰도: {confidence}")
+            if sources:
+                lines.append(f"소스: {sources[0]}")
+            lines.append(f"→ /buy {ticker} [가격] 으로 매수 기록")
+            messages.append("\n".join(lines))
+
+        await _send_telegram(bot, "\n".join(messages))
+
+    logger.info("send_cached_alerts_complete", count=len(alerts))
 
 
 def main() -> None:
