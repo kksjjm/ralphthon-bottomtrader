@@ -9,9 +9,12 @@ primary_region = "nrt"
 
 [[vm]]
   size = "shared-cpu-1x"
-  memory = "256mb"
+  memory = "512mb"
   cpus = 1
   processes = ["bot"]
 
 [deploy]
-  strategy = "immediate"
+  # Rolling: update one machine at a time. Standby takes over while primary updates.
+  strategy = "rolling"
+  max_unavailable = 0.0
+  wait_timeout = "5m"

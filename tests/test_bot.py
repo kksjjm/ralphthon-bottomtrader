@@ -202,13 +202,17 @@ class TestWatchlistCommand:
 
 @pytest.mark.asyncio
 class TestBuyCommand:
+    @patch("src.bot.fetch_prices")
     @patch("src.bot.db")
-    async def test_buy_success(self, mock_db, update, context):
+    async def test_buy_success(self, mock_db, mock_fetch, update, context):
+        import pandas as pd
         context.args = ["NVDA", "120.50"]
         mock_db.find_holding_trade.return_value = None
         mock_db.get_latest_alert_for_ticker.return_value = {"id": 5, "alert_price": 130.0}
         mock_db.get_or_create_user_settings.return_value = {}
+        mock_db.get_user_settings.return_value = {"lookback_period": 20}
         mock_db.create_trade.return_value = {"id": 1}
+        mock_fetch.return_value = pd.DataFrame({"Close": [120.0] * 25})
         await cmd_buy(update, context)
         text = update.message.reply_text.call_args[0][0]
         assert "매수 기록 완료" in text
@@ -223,6 +227,7 @@ class TestBuyCommand:
     @patch("src.bot.db")
     async def test_buy_invalid_price(self, mock_db, update, context):
         context.args = ["NVDA", "abc"]
+        mock_db.find_holding_trade.return_value = None
         await cmd_buy(update, context)
         assert "유효한 가격" in update.message.reply_text.call_args[0][0]
 

@@ -51,8 +51,8 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/unwatch [종목] — 워치리스트에서 제거\n"
         "/watchlist — 워치리스트 확인\n"
         "/mode [all|watchlist|both] — 모니터링 모드 변경\n"
-        "/buy [종목] [가격] — 매수 기록\n"
-        "/sell [종목] [가격] — 매도 기록\n"
+        "/buy [종목] — 현재가로 매수 기록 (가격 입력도 가능)\n"
+        "/sell [종목] — 현재가로 매도 기록 (가격 입력도 가능)\n"
         "/portfolio — 보유 포지션 확인\n"
         "/check — 매도 타이밍 체크 (이동평균 분석)\n"
         "/history — 과거 매매 기록"
@@ -234,72 +234,115 @@ async def cmd_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 async def cmd_buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
-    if not context.args or len(context.args) != 2:
-        await update.message.reply_text("사용법: /buy NVDA 120.50\n한글도 가능: /buy 엔비디아 120.50")
+    if not context.args or len(context.args) < 1 or len(context.args) > 2:
+        await update.message.reply_text(
+            "사용법: /buy NVDA  (현재가로 매수)\n"
+            "또는: /buy NVDA 120.50  (특정 가격으로 매수)\n"
+            "한글도 가능: /buy 엔비디아"
+        )
         return
     raw_ticker = context.args[0].strip()
     ticker = resolve_ticker(raw_ticker) or raw_ticker.upper()
-    price = _validate_positive_number(context.args[1])
-    if price is None:
-        await update.message.reply_text("유효한 가격을 입력하세요. 예: /buy NVDA 120.50")
-        return
 
     # Check for existing holding
     existing = db.find_holding_trade(user_id, ticker)
     if existing:
-        await update.message.reply_text(f"❌ {ticker}는 이미 보유 중입니다. 먼저 /sell {ticker} [가격]으로 매도하세요.")
+        await update.message.reply_text(f"❌ {ticker}는 이미 보유 중입니다. 먼저 /sell {ticker} 으로 매도하세요.")
+        return
+
+    db.get_or_create_user_settings(user_id)
+    settings = db.get_user_settings(user_id)
+    ma_period = int(settings.get("lookback_period", 20)) if settings else 20
+
+    # Determine buy price: explicit arg or current market price
+    explicit_price = None
+    if len(context.args) == 2:
+        explicit_price = _validate_positive_number(context.args[1])
+        if explicit_price is None:
+            await update.message.reply_text("유효한 가격을 입력하세요. 예: /buy NVDA 120.50")
+            return
+
+    # Fetch current price + moving average
+    current_price = None
+    buy_ma_price = None
+    try:
+        price_data = fetch_prices([ticker], period="3mo")
+        if not price_data.empty:
+            close = price_data["Close"]
+            if len(close) > 0:
+                current_price = round(float(close.iloc[-1]), 2)
+            if len(close) >= ma_period:
+                buy_ma_price = round(float(close.iloc[-ma_period:].mean()), 2)
+    except Exception:
+        pass
+
+    if explicit_price is not None:
+        price = explicit_price
+        price_source = "사용자 입력"
+    elif current_price is not None:
+        price = current_price
+        price_source = "현재 시장가"
+    else:
+        await update.message.reply_text(
+            f"❌ {ticker}의 현재 가격을 가져올 수 없습니다.\n"
+            f"가격을 직접 입력해주세요: /buy {ticker} [가격]"
+        )
         return
 
     # Find the most recent alert for this ticker
     alert = db.get_latest_alert_for_ticker(ticker)
     alert_id = alert["id"] if alert else None
 
-    if alert_id is None:
-        await update.message.reply_text(f"⚠️ {ticker}에 대한 최근 알림이 없습니다. 그래도 매수를 기록합니다.")
-
-    db.get_or_create_user_settings(user_id)
-    settings = db.get_user_settings(user_id)
-    ma_period = int(settings.get("lookback_period", 20)) if settings else 20
-
-    # Fetch current moving average for this ticker
-    buy_ma_price = None
-    try:
-        price_data = fetch_prices([ticker], period="3mo")
-        if not price_data.empty:
-            close = price_data["Close"]
-            if len(close) >= ma_period:
-                buy_ma_price = round(float(close.iloc[-ma_period:].mean()), 2)
-    except Exception:
-        pass
-
     trade = db.create_trade(user_id, alert_id, ticker, price,
                             buy_ma_price=buy_ma_price, buy_ma_period=ma_period)
-    msg = f"✅ {ticker} 매수 기록 완료\n매수가: ${price:.2f}"
+    msg = f"✅ {ticker} 매수 기록 완료\n매수가: ${price:.2f} ({price_source})"
     if buy_ma_price:
         ma_dist = ((price - buy_ma_price) / buy_ma_price) * 100
         msg += f"\n{ma_period}일 이동평균: ${buy_ma_price:.2f} ({ma_dist:+.1f}%)"
         msg += f"\n이동평균에 접근하면 매도 타이밍 알림을 보내드립니다."
     if alert:
-        msg += f"\n알��� 시점 가격: ${float(alert['alert_price']):.2f}"
+        msg += f"\n알림 시점 가격: ${float(alert['alert_price']):.2f}"
     await update.message.reply_text(msg)
 
 
 async def cmd_sell(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
-    if not context.args or len(context.args) != 2:
-        await update.message.reply_text("사용법: /sell NVDA 135.00\n한글도 가능: /sell 엔비디아 135.00")
+    if not context.args or len(context.args) < 1 or len(context.args) > 2:
+        await update.message.reply_text(
+            "사용법: /sell NVDA  (현재가로 매도)\n"
+            "또는: /sell NVDA 135.00  (특정 가격으로 매도)\n"
+            "한글도 가능: /sell 엔비디아"
+        )
         return
     raw_ticker = context.args[0].strip()
     ticker = resolve_ticker(raw_ticker) or raw_ticker.upper()
-    price = _validate_positive_number(context.args[1])
-    if price is None:
-        await update.message.reply_text("유효한 가격을 입력하세요.")
-        return
 
     trade = db.find_holding_trade(user_id, ticker)
     if not trade:
         await update.message.reply_text(f"❌ {ticker} 보유 포지션이 없습니다.")
         return
+
+    # Determine sell price
+    if len(context.args) == 2:
+        price = _validate_positive_number(context.args[1])
+        if price is None:
+            await update.message.reply_text("유효한 가격을 입력하세요.")
+            return
+        price_source = "사용자 입력"
+    else:
+        try:
+            price_data = fetch_prices([ticker], period="5d")
+            if price_data.empty:
+                raise ValueError("no data")
+            close = price_data["Close"]
+            price = round(float(close.iloc[-1]), 2)
+            price_source = "현재 시장가"
+        except Exception:
+            await update.message.reply_text(
+                f"❌ {ticker}의 현재 가격을 가져올 수 없습니다.\n"
+                f"가격을 직접 입력해주세요: /sell {ticker} [가격]"
+            )
+            return
 
     closed = db.close_trade(trade["id"], price)
     return_pct = closed.get("return_pct", 0)
@@ -308,7 +351,7 @@ async def cmd_sell(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         f"{emoji} {ticker} 매도 완료\n"
         f"매수가: ${float(trade['buy_price']):.2f}\n"
-        f"매도가: ${price:.2f}\n"
+        f"매도가: ${price:.2f} ({price_source})\n"
         f"수익률: {return_pct:+.2f}%\n"
         f"보유 기간: {holding_days}일"
     )
