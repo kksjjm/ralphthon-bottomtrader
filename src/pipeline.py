@@ -305,10 +305,9 @@ async def run_pipeline(send_telegram: bool = True) -> None:
         await _send_telegram(bot, "❌ 오늘 주가 데이터가 비어있습니다.")
         return
 
-    # Check market holiday
+    # Check market holiday — skip silently
     if not is_market_open_today(price_data):
-        await _send_telegram(bot, "🏖️ 오늘은 미국 시장 휴장입니다.")
-        logger.info("market_closed")
+        logger.info("market_closed_skipping")
         return
 
     # Detect drops using the most aggressive thresholds across all users
@@ -410,8 +409,8 @@ async def send_cached_alerts() -> None:
 
     alerts = db.get_alerts_by_date(today)
     if not alerts:
-        await _send_telegram(bot, f"📊 {today.isoformat()} — 오늘은 급락 종목이 없습니다.")
-        logger.info("send_cached_no_alerts")
+        # No alerts = market was closed or no drops. Either way, stay silent.
+        logger.info("send_cached_no_alerts_skipping")
         return
 
     if len(alerts) > CIRCUIT_BREAKER_THRESHOLD:
