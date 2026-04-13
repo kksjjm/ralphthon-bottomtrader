@@ -1,4 +1,12 @@
+# Secrets - NEVER commit these
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.*
+
+# Python
 __pycache__/
 *.pyc
 .pytest_cache/
@@ -7,4 +15,9 @@ dist/
 build/
 .venv/
 venv/
+
+# IDE / Tools
 .claude/
+.idea/
+.vscode/
+*.swp
