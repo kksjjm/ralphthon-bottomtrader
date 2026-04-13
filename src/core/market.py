@@ -164,14 +164,24 @@ def extract_avg_drops(
     return drops
 
 
-def is_market_open_today(data: pd.DataFrame) -> bool:
-    """Check if the most recent trading date is today."""
+def is_market_data_fresh(data: pd.DataFrame) -> bool:
+    """Check if market data is recent enough to analyze.
+
+    The latest trading date should be within 4 calendar days (covers normal
+    weekend gap of 3 days). Skip if data is older (extended holiday or stale).
+    """
     if data.empty:
         return False
     last_date = data.index[-1]
     if hasattr(last_date, "date"):
         last_date = last_date.date()
-    return last_date == date.today()
+    days_old = (date.today() - last_date).days
+    return days_old <= 4
+
+
+# Backwards-compat alias
+def is_market_open_today(data: pd.DataFrame) -> bool:
+    return is_market_data_fresh(data)
 
 
 def fetch_news_google(ticker: str, company_name: str = "") -> list[dict]:
