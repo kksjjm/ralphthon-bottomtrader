@@ -355,8 +355,18 @@ def create_app() -> Application:
 
 
 def main() -> None:
+    import asyncio
+    from src.scheduler import run_scheduler
+
     logger.info("bot_starting")
     app = create_app()
+
+    async def post_init(application) -> None:
+        """Start the scheduler as a background task after bot initializes."""
+        asyncio.create_task(run_scheduler())
+        logger.info("scheduler_attached_to_bot")
+
+    app.post_init = post_init
     app.run_polling(drop_pending_updates=True)
 
 
