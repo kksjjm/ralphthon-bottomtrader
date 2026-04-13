@@ -53,7 +53,9 @@ async def run_scheduler() -> None:
 
         logger.info("scheduler_triggering_pipeline")
         try:
-            await run_pipeline()
+            await asyncio.wait_for(run_pipeline(), timeout=600)
             logger.info("scheduler_pipeline_complete")
+        except asyncio.TimeoutError:
+            logger.error("scheduler_pipeline_timeout", timeout_seconds=600)
         except Exception as e:
             logger.error("scheduler_pipeline_error", error=str(e))

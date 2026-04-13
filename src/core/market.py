@@ -68,19 +68,34 @@ def resolve_ticker(query: str) -> str | None:
     return None
 
 
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=10))
 def fetch_prices(tickers: list[str], period: str = "3mo") -> pd.DataFrame:
-    """Batch download prices for all tickers. Returns DataFrame with Close prices."""
+    """Batch download prices in chunks for reliability on low-resource VMs."""
     logger.info("fetching_prices", count=len(tickers), period=period)
-    try:
-        data = yf.download(tickers, period=period, group_by="ticker", progress=False, threads=True)
-        if data.empty:
-            logger.warning("yfinance_empty_response")
-            return pd.DataFrame()
-        return data
-    except Exception as e:
-        logger.error("yfinance_failed", error=str(e))
-        raise
+    CHUNK_SIZE = 50
+    all_data = []
+    for i in range(0, len(tickers), CHUNK_SIZE):
+        chunk = tickers[i:i + CHUNK_SIZE]
+        logger.info("fetching_chunk", chunk_num=i // CHUNK_SIZE + 1,
+                     total_chunks=(len(tickers) + CHUNK_SIZE - 1) // CHUNK_SIZE,
+                     tickers=len(chunk))
+        try:
+            data = yf.download(chunk, period=period, group_by="ticker",
+                               progress=False, threads=True, timeout=30)
+            if not data.empty:
+                all_data.append(data)
+        except Exception as e:
+            logger.warning("chunk_download_failed", chunk_start=i, error=str(e))
+            continue
+
+    if not all_data:
+        logger.warning("yfinance_all_chunks_failed")
+        return pd.DataFrame()
+
+    if len(all_data) == 1:
+        return all_data[0]
+
+    result = pd.concat(all_data, axis=1)
+    return result
 
 
 def extract_daily_drops(
