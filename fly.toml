@@ -1,0 +1,17 @@
+app = "ralphthon-bottomtrader-bot"
+primary_region = "nrt"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[processes]
+  bot = "python -m src.bot"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
+  cpus = 1
+  processes = ["bot"]
+
+[deploy]
+  strategy = "immediate"
