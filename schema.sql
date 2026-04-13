@@ -34,6 +34,8 @@ CREATE TABLE trades (
   ticker VARCHAR(10) NOT NULL,
   buy_price DECIMAL,
   buy_date TIMESTAMPTZ,
+  buy_ma_price DECIMAL,
+  buy_ma_period INT,
   sell_price DECIMAL,
   sell_date TIMESTAMPTZ,
   status VARCHAR(20) DEFAULT 'watching',

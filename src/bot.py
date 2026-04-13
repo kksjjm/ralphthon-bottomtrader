@@ -11,7 +11,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 
 from src.core import db
 from src.core.config import TELEGRAM_BOT_TOKEN
-from src.core.market import load_ticker_info, resolve_ticker
+from src.core.market import load_ticker_info, resolve_ticker, fetch_prices
 
 logger = structlog.get_logger()
 
@@ -54,6 +54,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/buy [종목] [가격] — 매수 기록\n"
         "/sell [종목] [가격] — 매도 기록\n"
         "/portfolio — 보유 포지션 확인\n"
+        "/check — 매도 타이밍 체크 (이동평균 분석)\n"
         "/history — 과거 매매 기록"
     )
 
@@ -257,10 +258,29 @@ async def cmd_buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(f"⚠️ {ticker}에 대한 최근 알림이 없습니다. 그래도 매수를 기록합니다.")
 
     db.get_or_create_user_settings(user_id)
-    trade = db.create_trade(user_id, alert_id, ticker, price)
+    settings = db.get_user_settings(user_id)
+    ma_period = int(settings.get("lookback_period", 20)) if settings else 20
+
+    # Fetch current moving average for this ticker
+    buy_ma_price = None
+    try:
+        price_data = fetch_prices([ticker], period="3mo")
+        if not price_data.empty:
+            close = price_data["Close"]
+            if len(close) >= ma_period:
+                buy_ma_price = round(float(close.iloc[-ma_period:].mean()), 2)
+    except Exception:
+        pass
+
+    trade = db.create_trade(user_id, alert_id, ticker, price,
+                            buy_ma_price=buy_ma_price, buy_ma_period=ma_period)
     msg = f"✅ {ticker} 매수 기록 완료\n매수가: ${price:.2f}"
+    if buy_ma_price:
+        ma_dist = ((price - buy_ma_price) / buy_ma_price) * 100
+        msg += f"\n{ma_period}일 이동평균: ${buy_ma_price:.2f} ({ma_dist:+.1f}%)"
+        msg += f"\n이동평균에 접근하면 매도 타이밍 알림을 보내드립니다."
     if alert:
-        msg += f"\n알림 시점 가격: ${float(alert['alert_price']):.2f}"
+        msg += f"\n알��� 시점 가격: ${float(alert['alert_price']):.2f}"
     await update.message.reply_text(msg)
 
 
@@ -309,6 +329,79 @@ async def cmd_portfolio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await update.message.reply_text("\n".join(lines))
 
 
+async def cmd_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Check sell timing for all held positions against their moving averages."""
+    user_id = update.effective_user.id
+    holdings = db.get_holding_trades(user_id)
+    if not holdings:
+        await update.message.reply_text("📊 보유 포지션이 없습니다.")
+        return
+
+    await update.message.reply_text("⏳ 이동평균 분석 중...")
+
+    tickers = [t["ticker"] for t in holdings]
+    try:
+        price_data = fetch_prices(tickers, period="3mo")
+    except Exception:
+        await update.message.reply_text("❌ 주가 데이터 수집에 실패했습니다.")
+        return
+
+    if price_data.empty:
+        await update.message.reply_text("❌ 주가 데이터가 비어있습니다.")
+        return
+
+    lines = ["📊 보유 포지션 이동평균 분석\n"]
+    for trade in holdings:
+        ticker = trade["ticker"]
+        buy_price = float(trade["buy_price"]) if trade.get("buy_price") else None
+        ma_period = trade.get("buy_ma_period") or 20
+        buy_ma = float(trade["buy_ma_price"]) if trade.get("buy_ma_price") else None
+
+        try:
+            if len(tickers) == 1:
+                close = price_data["Close"]
+            else:
+                close = price_data[(ticker, "Close")]
+            if close.empty:
+                lines.append(f"  {ticker} — 데이터 없음")
+                continue
+
+            current_price = float(close.iloc[-1])
+            current_ma = float(close.iloc[-ma_period:].mean()) if len(close) >= ma_period else None
+
+            line = f"📌 {ticker}"
+            line += f"\n  현재가: ${current_price:.2f}"
+            if buy_price:
+                ret = ((current_price - buy_price) / buy_price) * 100
+                line += f" | 매수가: ${buy_price:.2f} ({ret:+.1f}%)"
+
+            if current_ma:
+                ma_dist = ((current_price - current_ma) / current_ma) * 100
+                if ma_dist >= 0:
+                    status = "✅ 이동평균 위"
+                elif ma_dist >= -2:
+                    status = "⚡ 이동평균 근접!"
+                elif ma_dist >= -5:
+                    status = "🔶 이동평균 접근 중"
+                else:
+                    status = "🔴 이동평균 아래"
+                line += f"\n  {ma_period}일 MA: ${current_ma:.2f} ({ma_dist:+.1f}%) {status}"
+
+            if buy_ma:
+                buy_ma_dist = ((current_price - buy_ma) / buy_ma) * 100
+                if buy_ma_dist >= 0:
+                    line += f"\n  매수시점 MA: ${buy_ma:.2f} ({buy_ma_dist:+.1f}%) 🔔 돌파!"
+                else:
+                    line += f"\n  매수시점 MA: ${buy_ma:.2f} ({buy_ma_dist:+.1f}%)"
+
+            lines.append(line)
+        except (KeyError, IndexError):
+            lines.append(f"  {ticker} — 분석 실패")
+
+    lines.append("\n💡 이동평균 돌파 시 자동 알림이 발송됩니다.")
+    await update.message.reply_text("\n".join(lines))
+
+
 async def cmd_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
     trades = db.get_closed_trades(user_id)
@@ -350,6 +443,7 @@ def create_app() -> Application:
     app.add_handler(CommandHandler("buy", cmd_buy))
     app.add_handler(CommandHandler("sell", cmd_sell))
     app.add_handler(CommandHandler("portfolio", cmd_portfolio))
+    app.add_handler(CommandHandler("check", cmd_check))
     app.add_handler(CommandHandler("history", cmd_history))
     return app
 

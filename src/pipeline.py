@@ -107,11 +107,12 @@ async def _send_telegram(bot: Bot, text: str) -> None:
         await bot.send_message(chat_id=TELEGRAM_CHANNEL_ID, text=part)
 
 
-async def update_position_snapshots(price_data, tickers: list[str], today: date) -> None:
-    """Update daily snapshots for all active holding trades."""
+async def update_position_snapshots(price_data, tickers: list[str], today: date) -> list[dict]:
+    """Update daily snapshots and check sell timing signals. Returns sell signals."""
     holdings = db.get_all_holding_trades()
+    sell_signals = []
     if not holdings:
-        return
+        return sell_signals
     for trade in holdings:
         ticker = trade["ticker"]
         try:
@@ -136,15 +137,124 @@ async def update_position_snapshots(price_data, tickers: list[str], today: date)
                     return_from_alert = ((current_price - alert_price) / alert_price) * 100
 
             return_from_buy = None
+            buy_price = None
             if trade.get("buy_price"):
                 buy_price = float(trade["buy_price"])
                 if buy_price > 0:
                     return_from_buy = ((current_price - buy_price) / buy_price) * 100
 
             db.insert_snapshot(trade["id"], today, current_price, return_from_alert, return_from_buy)
+
+            # --- Sell timing check: MA proximity ---
+            signal = _check_sell_signal(trade, close_series, current_price, buy_price)
+            if signal:
+                sell_signals.append(signal)
+
             logger.info("snapshot_updated", trade_id=trade["id"], ticker=ticker, price=current_price)
         except (KeyError, IndexError) as e:
             logger.warning("snapshot_failed", trade_id=trade["id"], ticker=ticker, error=str(e))
+    return sell_signals
+
+
+def _check_sell_signal(trade: dict, close_series, current_price: float,
+                       buy_price: float | None) -> dict | None:
+    """Check if a held position is approaching its moving average (sell timing signal).
+
+    Signals:
+    - MA_CROSS: Price crossed above the buy-time moving average
+    - MA_NEAR:  Price is within 2% of the moving average
+    - MA_ABOVE: Price is above MA (recovery zone)
+    """
+    ticker = trade["ticker"]
+    ma_period = trade.get("buy_ma_period") or DEFAULT_LOOKBACK_PERIOD
+    buy_ma = trade.get("buy_ma_price")
+
+    # Calculate current MA regardless
+    if len(close_series) < ma_period:
+        return None
+    current_ma = float(close_series.iloc[-ma_period:].mean())
+    if current_ma <= 0:
+        return None
+
+    # Distance from current MA
+    ma_distance_pct = ((current_price - current_ma) / current_ma) * 100
+
+    # If we have buy-time MA, compare against that too
+    buy_ma_distance_pct = None
+    if buy_ma and float(buy_ma) > 0:
+        buy_ma_val = float(buy_ma)
+        buy_ma_distance_pct = ((current_price - buy_ma_val) / buy_ma_val) * 100
+
+    # Determine signal type
+    signal_type = None
+    if ma_distance_pct >= 0:
+        signal_type = "MA_ABOVE"
+    elif ma_distance_pct >= -2:
+        signal_type = "MA_NEAR"
+
+    # Also check if crossed above buy-time MA
+    if buy_ma_distance_pct is not None and buy_ma_distance_pct >= 0:
+        signal_type = "MA_CROSS"
+
+    if signal_type is None:
+        return None
+
+    return_pct = None
+    if buy_price and buy_price > 0:
+        return_pct = ((current_price - buy_price) / buy_price) * 100
+
+    return {
+        "ticker": ticker,
+        "trade_id": trade["id"],
+        "user_id": trade["user_id"],
+        "signal": signal_type,
+        "current_price": current_price,
+        "buy_price": buy_price,
+        "return_pct": round(return_pct, 2) if return_pct else None,
+        "current_ma": round(current_ma, 2),
+        "ma_period": ma_period,
+        "ma_distance_pct": round(ma_distance_pct, 2),
+        "buy_ma_price": float(buy_ma) if buy_ma else None,
+        "buy_ma_distance_pct": round(buy_ma_distance_pct, 2) if buy_ma_distance_pct is not None else None,
+    }
+
+
+def _format_sell_signals(signals: list[dict]) -> str:
+    """Format sell timing signals into a Telegram message."""
+    if not signals:
+        return ""
+
+    emoji_map = {"MA_CROSS": "🔔", "MA_NEAR": "⚡", "MA_ABOVE": "📈"}
+    label_map = {
+        "MA_CROSS": "이동평균 돌파! 매도 검토",
+        "MA_NEAR": "이동평균 근접 (2% 이내)",
+        "MA_ABOVE": "이동평균 위 (회복 중)",
+    }
+
+    lines = ["", "💰 매도 타이밍 알림"]
+    for s in signals:
+        emoji = emoji_map.get(s["signal"], "📊")
+        label = label_map.get(s["signal"], "")
+        lines.append("")
+        lines.append(f"{emoji} {s['ticker']} — {label}")
+        lines.append(f"  현재가: ${s['current_price']:.2f} | {s['ma_period']}일 이동평균: ${s['current_ma']:.2f}")
+        lines.append(f"  이동평균 대비: {s['ma_distance_pct']:+.1f}%")
+        if s.get("buy_price"):
+            lines.append(f"  매수가: ${s['buy_price']:.2f} | 수익률: {s['return_pct']:+.1f}%")
+        if s.get("buy_ma_price"):
+            lines.append(f"  매수시점 이동평균: ${s['buy_ma_price']:.2f} | 대비: {s['buy_ma_distance_pct']:+.1f}%")
+        lines.append(f"  → /sell {s['ticker']} [가격] 으로 매도 기록")
+    return "\n".join(lines)
+
+
+async def _send_sell_signals(bot: Bot, signals: list[dict]) -> None:
+    """Send sell timing signals to affected users."""
+    if not signals:
+        return
+    msg = _format_sell_signals(signals)
+    if msg:
+        await _send_telegram(bot, msg)
+        logger.info("sell_signals_sent", count=len(signals))
 
 
 async def run_pipeline() -> None:
@@ -207,7 +317,8 @@ async def run_pipeline() -> None:
     if not all_drops:
         await _send_telegram(bot, f"📊 {today.isoformat()} — 오늘은 설정 기준에 맞는 급락 종목이 없습니다.")
         logger.info("no_drops_found")
-        await update_position_snapshots(price_data, tickers_list, today)
+        sell_signals = await update_position_snapshots(price_data, tickers_list, today)
+        await _send_sell_signals(bot, sell_signals)
         return
 
     logger.info("drops_found", count=len(all_drops))
@@ -235,7 +346,8 @@ async def run_pipeline() -> None:
                 cause=macro_analysis.get("cause"),
                 confidence=macro_analysis.get("confidence"),
             )
-        await update_position_snapshots(price_data, tickers_list, today)
+        sell_signals = await update_position_snapshots(price_data, tickers_list, today)
+        await _send_sell_signals(bot, sell_signals)
         return
 
     # Fetch news for each drop (sequential, respecting rate limits)
@@ -273,8 +385,9 @@ async def run_pipeline() -> None:
 
     await _send_telegram(bot, "\n".join(messages))
 
-    # Update position snapshots
-    await update_position_snapshots(price_data, tickers_list, today)
+    # Update position snapshots and check sell signals
+    sell_signals = await update_position_snapshots(price_data, tickers_list, today)
+    await _send_sell_signals(bot, sell_signals)
 
     logger.info("pipeline_complete", alerts=len(all_drops))
 

@@ -138,7 +138,8 @@ def get_latest_alert_for_ticker(ticker: str) -> dict | None:
 
 # --- Trades ---
 
-def create_trade(user_id: int, alert_id: int, ticker: str, buy_price: float) -> dict:
+def create_trade(user_id: int, alert_id: int, ticker: str, buy_price: float,
+                  buy_ma_price: float | None = None, buy_ma_period: int | None = None) -> dict:
     data = {
         "user_id": user_id,
         "alert_id": alert_id,
@@ -147,6 +148,10 @@ def create_trade(user_id: int, alert_id: int, ticker: str, buy_price: float) -> 
         "buy_date": datetime.now(UTC).isoformat(),
         "status": "holding",
     }
+    if buy_ma_price is not None:
+        data["buy_ma_price"] = float(buy_ma_price)
+    if buy_ma_period is not None:
+        data["buy_ma_period"] = buy_ma_period
     resp = _execute("trades", "insert", data=data)
     return resp.data[0]
 
