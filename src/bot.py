@@ -494,8 +494,10 @@ def create_app() -> Application:
 def main() -> None:
     import asyncio
     from src.scheduler import run_scheduler
+    from src.healthcheck import start_healthcheck_server
 
     logger.info("bot_starting")
+    start_healthcheck_server(port=8080)
     app = create_app()
 
     async def post_init(application) -> None:

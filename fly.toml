@@ -14,7 +14,22 @@ primary_region = "nrt"
   processes = ["bot"]
 
 [deploy]
-  # Rolling: update one machine at a time. Standby takes over while primary updates.
+  # Rolling deploy: update one machine at a time, wait for it to start before next
   strategy = "rolling"
-  max_unavailable = 0.0
   wait_timeout = "5m"
+
+# HTTP service for health checks (used by deploy + uptime monitoring)
+[http_service]
+  internal_port = 8080
+  force_https = false
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["bot"]
+
+  [[http_service.checks]]
+    grace_period = "60s"
+    interval = "30s"
+    method = "GET"
+    timeout = "10s"
+    path = "/health"
