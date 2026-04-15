@@ -26,6 +26,16 @@ class TestMergeDrops:
         assert result[0]["daily_drop_pct"] == -8.0
         assert result[0]["avg_drop_pct"] == -15.0
 
+    def test_merge_avg_only_preserves_daily(self):
+        # Avg-only tickers now carry the real daily change, not 0.
+        avg = [{
+            "ticker": "AAPL", "avg_drop_pct": -12.0, "close": 150.0,
+            "avg_price": 170.0, "daily_drop_pct": -1.5,
+        }]
+        result = _merge_drops([], avg)
+        assert len(result) == 1
+        assert result[0]["daily_drop_pct"] == -1.5
+
     def test_merge_empty(self):
         assert _merge_drops([], []) == []
 
@@ -35,29 +45,45 @@ class TestFormatMessages:
         analysis = {
             "ticker": "NVDA",
             "cause": "EU 반독점 조사",
-            "confidence": "HIGH",
-            "sources": ["https://reuters.com"],
+            "recovery_likelihood": "높음",
+            "sources": ["뉴스 제목"],
         }
         drop = {"daily_drop_pct": -7.2, "avg_drop_pct": -12.3}
         msg = _format_alert_message(analysis, drop)
         assert "NVDA" in msg
         assert "-7.2%" in msg
         assert "EU 반독점" in msg
-        assert "HIGH" in msg
+        assert "이동평균 복귀 가능성: 높음" in msg
         assert "/buy NVDA" in msg
+        # URL/sources should no longer appear in the message
+        assert "소스" not in msg
+        assert "신뢰도" not in msg
 
     def test_format_alert_no_avg(self):
-        analysis = {"ticker": "AAPL", "cause": "실적 미달", "confidence": "MEDIUM", "sources": []}
+        analysis = {"ticker": "AAPL", "cause": "실적 미달",
+                    "recovery_likelihood": "보통", "sources": []}
         drop = {"daily_drop_pct": -5.5}
         msg = _format_alert_message(analysis, drop)
-        assert "이동평균" not in msg
+        # "이동평균 복귀 가능성" is always shown, but "이동평균 대비" (the comparison line)
+        # should not appear when avg_drop_pct is missing
+        assert "이동평균 대비" not in msg
+        assert "이동평균 복귀 가능성: 보통" in msg
+
+    def test_format_alert_legacy_confidence(self):
+        # Older alert rows may still carry English confidence values.
+        analysis = {"ticker": "TSLA", "cause": "x", "confidence": "HIGH"}
+        drop = {"daily_drop_pct": -6.0}
+        msg = _format_alert_message(analysis, drop)
+        assert "이동평균 복귀 가능성: 높음" in msg
 
     def test_format_macro_message(self):
-        analysis = {"cause": "Fed 금리 인상", "confidence": "HIGH", "sources": ["https://reuters.com"]}
+        analysis = {"cause": "Fed 금리 인상", "recovery_likelihood": "낮음", "sources": []}
         msg = _format_macro_message(analysis, 50)
         assert "50개" in msg
         assert "Fed" in msg
         assert "회로 차단기" in msg
+        assert "이동평균 복귀 가능성: 낮음" in msg
+        assert "소스" not in msg
 
 
 @pytest.mark.asyncio

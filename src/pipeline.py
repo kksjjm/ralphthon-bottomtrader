@@ -47,53 +47,67 @@ def _merge_drops(daily: list[dict], avg: list[dict]) -> list[dict]:
             by_ticker[t]["avg_drop_pct"] = a["avg_drop_pct"]
             by_ticker[t]["avg_price"] = a.get("avg_price")
         else:
-            by_ticker[t] = {**a, "daily_drop_pct": 0}
+            # avg-only entry: preserve real daily change if provided,
+            # otherwise fall back to 0 (older callers)
+            merged = {**a}
+            if merged.get("daily_drop_pct") is None:
+                merged["daily_drop_pct"] = 0
+            by_ticker[t] = merged
     return list(by_ticker.values())
+
+
+def _get_recovery(analysis: dict) -> str:
+    """Extract recovery likelihood from analysis, tolerating legacy keys."""
+    val = analysis.get("recovery_likelihood") or analysis.get("confidence")
+    if not val:
+        return "보통"
+    s = str(val).strip()
+    if s in ("매우낮음", "낮음", "보통", "높음", "매우높음"):
+        return s
+    legacy = {"HIGH": "높음", "MEDIUM": "보통", "LOW": "낮음"}
+    return legacy.get(s.upper(), "보통")
 
 
 def _format_alert_message(analysis: dict, drop_info: dict) -> str:
     ticker = analysis["ticker"]
-    daily_pct = drop_info.get("daily_drop_pct", 0)
+    daily_pct = drop_info.get("daily_drop_pct")
+    if daily_pct is None:
+        daily_pct = 0
     avg_pct = drop_info.get("avg_drop_pct")
     cause = analysis.get("cause", "분석 불가")
-    confidence = analysis.get("confidence", "LOW")
-    sources = analysis.get("sources", [])
+    recovery = _get_recovery(analysis)
 
     lines = [f"📉 {ticker} {daily_pct:+.1f}% (일일)"]
     if avg_pct:
         lines[0] += f" | 이동평균 대비 {avg_pct:+.1f}%"
     lines.append(f"원인: {cause}")
-    lines.append(f"신뢰도: {confidence}")
-    if sources:
-        lines.append(f"소스: {sources[0]}")
+    lines.append(f"이동평균 복귀 가능성: {recovery}")
     lines.append(f"→ /buy {ticker} [가격] 으로 매수 기록")
     return "\n".join(lines)
 
 
 def _format_macro_message(analysis: dict, drop_count: int) -> str:
     cause = analysis.get("cause", "분석 불가")
-    confidence = analysis.get("confidence", "LOW")
-    sources = analysis.get("sources", [])
+    recovery = _get_recovery(analysis)
     lines = [
         f"🔻 시장 전체 급락 — {drop_count}개 종목 하락",
         "",
         f"원인: {cause}",
-        f"신뢰도: {confidence}",
+        f"이동평균 복귀 가능성: {recovery}",
     ]
-    if sources:
-        lines.append(f"소스: {sources[0]}")
     lines.append("\n개별 종목 알림은 회로 차단기에 의해 생략되었습니다.")
     return "\n".join(lines)
 
 
-async def _send_telegram(bot: Bot | None, text: str) -> None:
-    """Send a message to the Telegram channel, splitting if needed."""
+async def _send_telegram(bot: Bot | None, text: str, chat_id: str | int | None = None) -> None:
+    """Send a message to a Telegram chat (default: configured channel), splitting if needed."""
     if bot is None:
         return
+    target = chat_id if chat_id is not None else TELEGRAM_CHANNEL_ID
     max_len = 4000
     full_text = text + DISCLAIMER
     if len(full_text) <= max_len:
-        await bot.send_message(chat_id=TELEGRAM_CHANNEL_ID, text=full_text)
+        await bot.send_message(chat_id=target, text=full_text)
         return
     parts = []
     current = ""
@@ -106,7 +120,74 @@ async def _send_telegram(bot: Bot | None, text: str) -> None:
     if current:
         parts.append(current)
     for part in parts:
-        await bot.send_message(chat_id=TELEGRAM_CHANNEL_ID, text=part)
+        await bot.send_message(chat_id=target, text=part)
+
+
+def _user_sees_drop(user: dict, drop: dict, watchlist_tickers: set) -> bool:
+    """Filter drops per user's monitor_mode and their own thresholds."""
+    mode = user.get("monitor_mode", "all")
+    ticker = drop["ticker"]
+
+    # Mode gate: watchlist-only users skip tickers outside their watchlist.
+    if mode == "watchlist" and ticker not in watchlist_tickers:
+        return False
+
+    # Threshold gate: the global fetch used the most aggressive threshold across
+    # users, so individual users must re-check against their own settings.
+    daily_drop = drop.get("daily_drop_pct")
+    avg_drop = drop.get("avg_drop_pct")
+    daily_threshold = float(user.get("daily_drop_threshold") or DEFAULT_DAILY_DROP_THRESHOLD)
+    avg_threshold = float(user.get("drop_threshold") or DEFAULT_DROP_THRESHOLD)
+
+    meets_daily = daily_drop is not None and daily_drop <= -daily_threshold
+    meets_avg = avg_drop is not None and avg_drop <= -avg_threshold
+    return meets_daily or meets_avg
+
+
+async def _send_per_user_alerts(bot: Bot | None, all_drops: list[dict],
+                                 analysis_map: dict, users: list[dict],
+                                 today: date) -> int:
+    """Send mode-filtered alerts to each registered user via DM.
+    Returns count of users we successfully messaged."""
+    if bot is None:
+        return 0
+    sent = 0
+    for user in users:
+        uid = user.get("user_id")
+        if not uid or uid == 0:
+            continue
+        wl_items = db.get_watchlist(uid)
+        wl_tickers = {w["ticker"] for w in wl_items}
+
+        filtered = [d for d in all_drops if _user_sees_drop(user, d, wl_tickers)]
+
+        mode = user.get("monitor_mode", "all")
+        mode_label = {"all": "전체", "watchlist": "워치리스트", "both": "전체+워치리스트"}.get(mode, mode)
+        header = f"📉 급락 알림 ({today.isoformat()}) — 모드: {mode_label}"
+
+        if not filtered:
+            try:
+                await _send_telegram(bot, f"{header}\n\n설정 기준에 맞는 급락 종목이 없습니다.", chat_id=uid)
+            except Exception as e:
+                logger.warning("user_dm_failed", user_id=uid, error=str(e))
+            continue
+
+        messages = [header]
+        for drop in sorted(filtered, key=lambda x: x.get("daily_drop_pct") or 0):
+            ticker = drop["ticker"]
+            analysis = analysis_map.get(ticker, {
+                "ticker": ticker, "cause": "분석 없음",
+                "recovery_likelihood": "보통", "sources": [],
+            })
+            messages.append("")
+            messages.append(_format_alert_message(analysis, drop))
+
+        try:
+            await _send_telegram(bot, "\n".join(messages), chat_id=uid)
+            sent += 1
+        except Exception as e:
+            logger.warning("user_dm_failed", user_id=uid, error=str(e))
+    return sent
 
 
 async def update_position_snapshots(price_data, tickers: list[str], today: date) -> list[dict]:
@@ -250,13 +331,24 @@ def _format_sell_signals(signals: list[dict]) -> str:
 
 
 async def _send_sell_signals(bot: Bot | None, signals: list[dict]) -> None:
-    """Send sell timing signals to affected users."""
-    if not signals:
+    """Send sell timing signals privately to each affected user."""
+    if not signals or bot is None:
         return
-    msg = _format_sell_signals(signals)
-    if msg:
-        await _send_telegram(bot, msg)
-        logger.info("sell_signals_sent", count=len(signals))
+    by_user: dict[int, list[dict]] = {}
+    for s in signals:
+        uid = s.get("user_id")
+        if not uid:
+            continue
+        by_user.setdefault(uid, []).append(s)
+    for uid, user_signals in by_user.items():
+        msg = _format_sell_signals(user_signals)
+        if not msg:
+            continue
+        try:
+            await _send_telegram(bot, msg, chat_id=uid)
+        except Exception as e:
+            logger.warning("sell_signal_dm_failed", user_id=uid, error=str(e))
+    logger.info("sell_signals_sent", total=len(signals), users=len(by_user))
 
 
 async def run_pipeline(send_telegram: bool = True) -> None:
@@ -320,8 +412,20 @@ async def run_pipeline(send_telegram: bool = True) -> None:
 
     all_drops = _merge_drops(daily_drops, avg_drops)
 
+    # Users who have explicitly registered (exclude the user_id=0 placeholder)
+    real_users = [u for u in users if u.get("user_id")]
+
     if not all_drops:
-        await _send_telegram(bot, f"📊 {today.isoformat()} — 오늘은 설정 기준에 맞는 급락 종목이 없습니다.")
+        msg = f"📊 {today.isoformat()} — 오늘은 설정 기준에 맞는 급락 종목이 없습니다."
+        if real_users and bot is not None:
+            for user in real_users:
+                uid = user["user_id"]
+                try:
+                    await _send_telegram(bot, msg, chat_id=uid)
+                except Exception as e:
+                    logger.warning("user_dm_failed", user_id=uid, error=str(e))
+        else:
+            await _send_telegram(bot, msg)
         logger.info("no_drops_found")
         sell_signals = await update_position_snapshots(price_data, tickers_list, today)
         await _send_sell_signals(bot, sell_signals)
@@ -338,19 +442,29 @@ async def run_pipeline(send_telegram: bool = True) -> None:
             sample_news.extend(news)
         macro_analysis = await analyze_macro_crash(len(all_drops), sample_news)
         msg = _format_macro_message(macro_analysis, len(all_drops))
-        await _send_telegram(bot, f"📉 급락 알림 ({today.isoformat()})\n\n{msg}")
+        full_msg = f"📉 급락 알림 ({today.isoformat()})\n\n{msg}"
+        if real_users and bot is not None:
+            for user in real_users:
+                uid = user["user_id"]
+                try:
+                    await _send_telegram(bot, full_msg, chat_id=uid)
+                except Exception as e:
+                    logger.warning("user_dm_failed", user_id=uid, error=str(e))
+        else:
+            await _send_telegram(bot, full_msg)
 
         # Still store alerts for the top drops
-        sorted_drops = sorted(all_drops, key=lambda x: x.get("daily_drop_pct", 0))
+        sorted_drops = sorted(all_drops, key=lambda x: x.get("daily_drop_pct") or 0)
+        macro_recovery = _get_recovery(macro_analysis)
         for d in sorted_drops[:20]:
             db.insert_alert(
                 ticker=d["ticker"],
                 run_date=today,
-                drop_pct=d.get("daily_drop_pct", 0),
+                drop_pct=d.get("daily_drop_pct") or 0,
                 alert_price=d["close"],
                 avg_drop_pct=d.get("avg_drop_pct"),
                 cause=macro_analysis.get("cause"),
-                confidence=macro_analysis.get("confidence"),
+                confidence=macro_recovery,
             )
         sell_signals = await update_position_snapshots(price_data, tickers_list, today)
         await _send_sell_signals(bot, sell_signals)
@@ -366,36 +480,64 @@ async def run_pipeline(send_telegram: bool = True) -> None:
     # Build analysis lookup
     analysis_map = {a["ticker"]: a for a in analyses}
 
-    # Store alerts and send messages
-    messages = [f"📉 급락 알림 ({today.isoformat()})"]
-    for drop in sorted(all_drops, key=lambda x: x.get("daily_drop_pct", 0)):
+    # Store alerts (idempotent via UNIQUE constraint)
+    for drop in sorted(all_drops, key=lambda x: x.get("daily_drop_pct") or 0):
         ticker = drop["ticker"]
         analysis = analysis_map.get(ticker, {
-            "ticker": ticker, "cause": "분석 없음", "confidence": "LOW", "sources": []
+            "ticker": ticker, "cause": "분석 없음",
+            "recovery_likelihood": "보통", "sources": [],
         })
-
-        # Store alert (idempotent via UNIQUE constraint)
         db.insert_alert(
             ticker=ticker,
             run_date=today,
-            drop_pct=drop.get("daily_drop_pct", 0),
+            drop_pct=drop.get("daily_drop_pct") or 0,
             alert_price=drop["close"],
             avg_drop_pct=drop.get("avg_drop_pct"),
             cause=analysis.get("cause"),
-            confidence=analysis.get("confidence"),
+            confidence=_get_recovery(analysis),
             sources=analysis.get("sources"),
         )
 
-        messages.append("")
-        messages.append(_format_alert_message(analysis, drop))
-
-    await _send_telegram(bot, "\n".join(messages))
+    # Send: per-user filtered DMs for registered users, else channel broadcast.
+    if real_users and bot is not None:
+        sent = await _send_per_user_alerts(bot, all_drops, analysis_map, real_users, today)
+        logger.info("per_user_alerts_sent", users=sent)
+    else:
+        messages = [f"📉 급락 알림 ({today.isoformat()})"]
+        for drop in sorted(all_drops, key=lambda x: x.get("daily_drop_pct") or 0):
+            ticker = drop["ticker"]
+            analysis = analysis_map.get(ticker, {
+                "ticker": ticker, "cause": "분석 없음",
+                "recovery_likelihood": "보통", "sources": [],
+            })
+            messages.append("")
+            messages.append(_format_alert_message(analysis, drop))
+        await _send_telegram(bot, "\n".join(messages))
 
     # Update position snapshots and check sell signals
     sell_signals = await update_position_snapshots(price_data, tickers_list, today)
     await _send_sell_signals(bot, sell_signals)
 
     logger.info("pipeline_complete", alerts=len(all_drops))
+
+
+def _alert_to_drop(a: dict) -> dict:
+    """Convert a DB alert row to the drop dict shape used by formatting helpers."""
+    return {
+        "ticker": a["ticker"],
+        "daily_drop_pct": float(a["drop_pct"]) if a.get("drop_pct") is not None else 0,
+        "avg_drop_pct": float(a["avg_drop_pct"]) if a.get("avg_drop_pct") else None,
+        "close": float(a["alert_price"]) if a.get("alert_price") else 0,
+    }
+
+
+def _alert_to_analysis(a: dict) -> dict:
+    return {
+        "ticker": a["ticker"],
+        "cause": a.get("cause", "분석 없음"),
+        "recovery_likelihood": _get_recovery(a),
+        "sources": a.get("sources") or [],
+    }
 
 
 async def send_cached_alerts() -> None:
@@ -409,35 +551,39 @@ async def send_cached_alerts() -> None:
 
     alerts = db.get_alerts_by_date(today)
     if not alerts:
-        # No alerts = market was closed or no drops. Either way, stay silent.
         logger.info("send_cached_no_alerts_skipping")
         return
+
+    users = db.get_all_user_settings()
+    real_users = [u for u in users if u.get("user_id")]
 
     if len(alerts) > CIRCUIT_BREAKER_THRESHOLD:
         msg = f"🔻 시장 전체 급락 — {len(alerts)}개 종목 하락"
         if alerts[0].get("cause"):
             msg += f"\n\n원인: {alerts[0]['cause']}"
-        await _send_telegram(bot, msg)
+            msg += f"\n이동평균 복귀 가능성: {_get_recovery(alerts[0])}"
+        if real_users:
+            for user in real_users:
+                try:
+                    await _send_telegram(bot, msg, chat_id=user["user_id"])
+                except Exception as e:
+                    logger.warning("user_dm_failed", user_id=user["user_id"], error=str(e))
+        else:
+            await _send_telegram(bot, msg)
+        logger.info("send_cached_alerts_complete", count=len(alerts))
+        return
+
+    drops = [_alert_to_drop(a) for a in alerts]
+    analysis_map = {a["ticker"]: _alert_to_analysis(a) for a in alerts}
+
+    if real_users:
+        sent = await _send_per_user_alerts(bot, drops, analysis_map, real_users, today)
+        logger.info("per_user_cached_sent", users=sent)
     else:
         messages = [f"📉 급락 알림 ({today.isoformat()})"]
-        for a in sorted(alerts, key=lambda x: float(x.get("drop_pct", 0))):
-            ticker = a["ticker"]
-            drop_pct = float(a.get("drop_pct", 0))
-            avg_drop_pct = float(a["avg_drop_pct"]) if a.get("avg_drop_pct") else None
-            cause = a.get("cause", "분석 없음")
-            confidence = a.get("confidence", "LOW")
-            sources = a.get("sources") or []
-
-            lines = [f"\n📉 {ticker} {drop_pct:+.1f}% (일일)"]
-            if avg_drop_pct:
-                lines[0] += f" | 이동평균 대비 {avg_drop_pct:+.1f}%"
-            lines.append(f"원인: {cause}")
-            lines.append(f"신뢰도: {confidence}")
-            if sources:
-                lines.append(f"소스: {sources[0]}")
-            lines.append(f"→ /buy {ticker} [가격] 으로 매수 기록")
-            messages.append("\n".join(lines))
-
+        for drop in sorted(drops, key=lambda x: x.get("daily_drop_pct") or 0):
+            messages.append("")
+            messages.append(_format_alert_message(analysis_map[drop["ticker"]], drop))
         await _send_telegram(bot, "\n".join(messages))
 
     logger.info("send_cached_alerts_complete", count=len(alerts))

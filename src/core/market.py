@@ -151,12 +151,18 @@ def extract_avg_drops(
             if pd.isna(last_close) or pd.isna(avg_price) or avg_price == 0:
                 continue
             pct_from_avg = ((last_close - avg_price) / avg_price) * 100
+            # Also compute actual daily change so downstream never sees 0%
+            prev_close = float(close.iloc[-2]) if len(close) >= 2 else None
+            daily_pct = None
+            if prev_close and not pd.isna(prev_close) and prev_close != 0:
+                daily_pct = round(((last_close - prev_close) / prev_close) * 100, 2)
             if pct_from_avg <= -avg_threshold:
                 drops.append({
                     "ticker": ticker,
                     "close": last_close,
                     "avg_price": round(avg_price, 2),
                     "avg_drop_pct": round(pct_from_avg, 2),
+                    "daily_drop_pct": daily_pct,
                     "lookback_period": lookback_period,
                 })
         except (KeyError, IndexError):

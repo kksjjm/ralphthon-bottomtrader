@@ -15,21 +15,27 @@ from src.core.analyzer import (
 
 class TestParseResponse:
     def test_valid_json(self):
-        text = json.dumps({"cause": "test", "confidence": "HIGH", "sources": ["url"]})
+        text = json.dumps({"cause": "test", "recovery_likelihood": "높음", "sources": ["url"]})
         result = _parse_response(text)
         assert result["cause"] == "test"
-        assert result["confidence"] == "HIGH"
+        assert result["recovery_likelihood"] == "높음"
+
+    def test_legacy_confidence_mapped(self):
+        text = json.dumps({"cause": "test", "confidence": "HIGH", "sources": []})
+        result = _parse_response(text)
+        assert result["recovery_likelihood"] == "높음"
 
     def test_json_with_surrounding_text(self):
-        text = 'Here is the response: {"cause": "drop", "confidence": "LOW", "sources": []} end'
+        text = 'Here is the response: {"cause": "drop", "recovery_likelihood": "낮음", "sources": []} end'
         result = _parse_response(text)
         assert result["cause"] == "drop"
+        assert result["recovery_likelihood"] == "낮음"
 
     def test_invalid_json_fallback(self):
         text = "This is not JSON at all"
         result = _parse_response(text)
         assert result["cause"] == text
-        assert result["confidence"] == "LOW"
+        assert result["recovery_likelihood"] == "보통"
         assert result["sources"] == []
 
 
@@ -42,7 +48,8 @@ class TestBuildUserPrompt:
         assert "NVDA" in prompt
         assert "-10.0%" in prompt
         assert "NVDA drops 10%" in prompt
-        assert "https://ex.com" in prompt
+        # URLs are no longer sent to the LLM
+        assert "https://ex.com" not in prompt
 
     def test_without_news(self):
         prompt = _build_user_prompt("TSLA", -5.5, [])
@@ -62,8 +69,8 @@ async def test_analyze_single_drop_success():
     mock_response.choices = [
         MagicMock(message=MagicMock(content=json.dumps({
             "cause": "EU 조사",
-            "confidence": "HIGH",
-            "sources": ["https://reuters.com"],
+            "recovery_likelihood": "높음",
+            "sources": ["EU probe"],
         })))
     ]
     mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
@@ -72,7 +79,7 @@ async def test_analyze_single_drop_success():
         mock_client, "NVDA", -10.0, [{"title": "EU probe", "source": "Reuters", "link": "https://reuters.com"}]
     )
     assert result["ticker"] == "NVDA"
-    assert result["confidence"] == "HIGH"
+    assert result["recovery_likelihood"] == "높음"
     assert "EU" in result["cause"]
 
 
@@ -85,7 +92,7 @@ async def test_analyze_single_drop_api_failure():
         mock_client, "NVDA", -10.0, [{"title": "News", "link": "", "source": ""}]
     )
     assert result["ticker"] == "NVDA"
-    assert result["confidence"] == "LOW"
+    assert result["recovery_likelihood"] == "보통"
     assert "실패" in result["cause"]
 
 
@@ -97,7 +104,7 @@ async def test_analyze_drops_parallel():
         mock_response.choices = [
             MagicMock(message=MagicMock(content=json.dumps({
                 "cause": "테스트 원인",
-                "confidence": "MEDIUM",
+                "recovery_likelihood": "보통",
                 "sources": [],
             })))
         ]
@@ -121,13 +128,13 @@ async def test_analyze_macro_crash():
         mock_response.choices = [
             MagicMock(message=MagicMock(content=json.dumps({
                 "cause": "Fed 금리 인상 발표",
-                "confidence": "HIGH",
-                "sources": ["https://reuters.com"],
+                "recovery_likelihood": "낮음",
+                "sources": [],
             })))
         ]
         mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
         MockOpenAI.return_value = mock_client
 
         result = await analyze_macro_crash(50, [{"title": "Fed hikes", "source": "Reuters"}])
-        assert result["confidence"] == "HIGH"
+        assert result["recovery_likelihood"] == "낮음"
         assert "Fed" in result["cause"]
